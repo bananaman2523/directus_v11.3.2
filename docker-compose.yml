@@ -35,7 +35,7 @@ services:
       DB_CLIENT: pg
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_DATABASE: directus_test
+      DB_DATABASE: directus-11-test
       DB_USER: postgres
       DB_PASSWORD: 1234
       KEY: "test-5fab99bc-056d-4b87-9c21-f208e7cf8a38"
@@ -45,7 +45,7 @@ services:
       CORS_METHODS: "GET,POST,PATCH,DELETE,OPTIONS"
       CORS_HEADERS: "Content-Type,Authorization"
       CORS_ALLOWED_ORIGINS: "http://localhost:8080"
-      PUBLIC_URL: "http://localhost:8056/"
+      PUBLIC_URL: "http://localhost:8055/"
       EXTENSIONS_AUTO_RELOAD: "true"
     volumes:
       - ./extensions:/directus/extensions/
