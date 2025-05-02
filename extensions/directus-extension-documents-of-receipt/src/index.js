@@ -21,7 +21,7 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 					},
 				},
 			});
-			const sequence = String(generateNumber.length+1).padStart(2, '0');
+			const sequence = String(generateNumber.length + 1).padStart(2, '0');
 
 			const updatedRecord = await items.updateOne(key, {
 				document_number: `${prefix}${formattedDate}${sequence}`,
