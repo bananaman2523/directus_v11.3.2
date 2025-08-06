@@ -56,13 +56,20 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 				'check_list_printer_queue'
 			];
 
+			function extractId(qrCode) {
+				if (!qrCode) return null;
+				const match = qrCode.match(/([0-9a-fA-F\-]{36})$/);
+				return match ? match[1] : qrCode;
+			}
+
 			for (const field of checkListFields) {
 				if (Array.isArray(dataMAList[field])) {
 					for (const item of dataMAList[field]) {
-						if (item.qr_code) {
-							const qrData = await itemsQRCode.readOne(item.qr_code, { fields: ['is_open'] });
+						const qrCodeId = extractId(item.qr_code);
+						if (qrCodeId) {
+							const qrData = await itemsQRCode.readOne(qrCodeId, { fields: ['is_open'] });
 							if (qrData && qrData.is_open === false) {
-								await itemsQRCode.updateOne(item.qr_code, {
+								await itemsQRCode.updateOne(qrCodeId, {
 									is_open: true,
 									group_product: item.product_device,
 									product_name: item.product_name,
