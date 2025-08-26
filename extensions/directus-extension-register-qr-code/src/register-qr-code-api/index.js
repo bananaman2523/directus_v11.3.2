@@ -100,14 +100,16 @@ export default (router, { services, getSchema }) => {
 			dataMAList = await itemsQRCode.readOne(req.params.id, {
 				fields: [
 					'is_open',
-					'group_product',
-					'product_name',
-					'model',
-					'serial_number',
-					'company_name',
-					'store_name',
-					'branch_name',
-					'branch_code',
+					'equipment.product_code',
+					'equipment.product_name',
+					'equipment.serial_number',
+					'equipment.group_product',
+					'equipment.model',
+					'equipment.qr_code',
+					'equipment.store_name',
+					'equipment.company_name',
+					'equipment.branch',
+					'equipment.branch_code'
 				],
 			});
 		} catch (error) {
