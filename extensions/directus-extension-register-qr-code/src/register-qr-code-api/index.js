@@ -55,12 +55,6 @@ export default (router, { services, getSchema }) => {
 			'check_list_printer_queue'
 		];
 
-		function extractId(qrCode) {
-			if (!qrCode) return null;
-			const match = qrCode.match(/([0-9a-fA-F\-]{36})$/);
-			return match ? match[1] : qrCode;
-		}
-
 		const serialNumbers = [];
 
 		for (const field of checkListFields) {

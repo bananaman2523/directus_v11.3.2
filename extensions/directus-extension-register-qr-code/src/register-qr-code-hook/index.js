@@ -2,8 +2,8 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 	const { ItemsService } = services;
 
 	action('ma_list.items.update', async ({ payload, keys, collection }) => {
-		const itemsQRCode = new ItemsService('qr_code', { schema: await getSchema() });
 		const itemsMAList = new ItemsService('ma_list', { schema: await getSchema() });
+		const itemsEquipments = new ItemsService('equipment', { schema: await getSchema() });
 
 		const status = payload.status;
 
@@ -56,35 +56,95 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 				'check_list_printer_queue'
 			];
 
-			function extractId(qrCode) {
-				if (!qrCode) return null;
-				const match = qrCode.match(/([0-9a-fA-F\-]{36})$/);
-				return match ? match[1] : qrCode;
-			}
+			const serialNumbers = [];
 
 			for (const field of checkListFields) {
-				if (Array.isArray(dataMAList[field])) {
-					for (const item of dataMAList[field]) {
-						const qrCodeId = extractId(item.qr_code);
-						if (qrCodeId) {
-							const qrData = await itemsQRCode.readOne(qrCodeId, { fields: ['is_open'] });
-							if (qrData && qrData.is_open === false) {
-								await itemsQRCode.updateOne(qrCodeId, {
-									is_open: true,
-									group_product: item.product_device,
-									product_name: item.product_name,
-									model: item.product_model,
-									serial_number: item.serial_number,
-									company_name: dataMAList.company_name,
-									store_name: dataMAList.store_name,
-									branch_name: dataMAList.branch_name,
-									branch_code: dataMAList.branch_code,
-								});
+				if (dataMAList[`have_${field.replace('check_list_', '')}`]) {
+					const checkList = dataMAList[field];
+					if (Array.isArray(checkList)) {
+						for (const item of checkList) {
+							if (item.serial_number) {
+								serialNumbers.push(item.serial_number);
 							}
+						}
+					} else if (checkList && typeof checkList === 'object') {
+						if (checkList.serial_number) {
+							serialNumbers.push(checkList.serial_number);
 						}
 					}
 				}
 			}
+
+			const uniqueSerialNumbers = Array.from(new Set(serialNumbers));
+
+			const existingEquipments = await itemsEquipments.readByQuery({
+				fields: ['serial_number', 'product_code', 'product_name', 'model', 'group_product', 'store_name', 'company_name', 'branch', 'branch_code'],
+				filter: {
+					serial_number: {
+						_in: uniqueSerialNumbers
+					},
+				}
+			});
+
+			// Build a Set of existing serial numbers for O(1) lookup
+			const existingSerialSet = new Set(existingEquipments.map(eq => eq.serial_number));
+			const payloadEquipments = [];
+
+			for (const serial of uniqueSerialNumbers) {
+				if (!existingSerialSet.has(serial)) {
+					// Find the corresponding item in check_listFields
+					let product_code = null;
+					let product_name = null;
+					let model = null;
+					let group_product = null;
+					let qr_code = null;
+
+					for (const field of checkListFields) {
+						if (dataMAList[`have_${field.replace('check_list_', '')}`]) {
+							const checkList = dataMAList[field];
+							if (Array.isArray(checkList)) {
+								for (const item of checkList) {
+									if (item.serial_number === serial) {
+										product_code = item.product_code || null;
+										product_name = item.product_name || null;
+										model = item.product_model || null;
+										group_product = item.product_device || null;
+										qr_code = item.qr_code || null;
+										break;
+									}
+								}
+							} else if (checkList && typeof checkList === 'object') {
+								if (checkList.serial_number === serial) {
+									product_code = checkList.product_code || null;
+									product_name = checkList.product_name || null;
+									model = checkList.product_model || null;
+									group_product = checkList.product_device || null;
+									qr_code = checkList.qr_code || null;
+									break;
+								}
+							}
+						}
+						if (product_code) break;
+					}
+					payloadEquipments.push(
+						{
+							serial_number: serial,
+							product_code,
+							product_name,
+							model,
+							group_product,
+							store_name: dataMAList.store_name || null,
+							company_name: dataMAList.company_name || null,
+							branch: dataMAList.branch_name || null,
+							branch_code: dataMAList.branch_code || null,
+							qr_code
+						}
+					);
+				}
+			}
+			await itemsEquipments.createMany([
+				...payloadEquipments
+			]);
 
 		} catch (error) {
 			console.error("Error creating record:", error);
