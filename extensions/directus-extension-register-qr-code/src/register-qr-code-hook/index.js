@@ -4,6 +4,7 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 	action('ma_list.items.update', async ({ payload, keys, collection }) => {
 		const itemsMAList = new ItemsService('ma_list', { schema: await getSchema() });
 		const itemsEquipments = new ItemsService('equipment', { schema: await getSchema() });
+		const itemsQRCode = new ItemsService('qr_code', { schema: await getSchema() });
 
 		const status = payload.status;
 
