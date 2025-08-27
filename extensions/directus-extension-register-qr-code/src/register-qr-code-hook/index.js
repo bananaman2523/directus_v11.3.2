@@ -13,7 +13,7 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 		}
 
 		try {
-			const dataMAList = await itemsMAList.readOne(keys[0], {
+			const dataMAList = await itemsMAList.readOne(payload.id, {
 				fields: [
 					'company_name',
 					'store_name',
@@ -89,6 +89,28 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 			// Build a Set of existing serial numbers for O(1) lookup
 			const existingSerialSet = new Set(existingEquipments.map(eq => eq.serial_number));
 			const payloadEquipments = [];
+			const qrCodesToUpdate = [];
+
+			async function checkQRCode(qrCodeId) {
+				function extractId(qrCode) {
+					if (!qrCode) return null;
+					const match = qrCode.match(/([0-9a-fA-F\-]{36})$/);
+					return match ? match[1] : qrCode;
+				}
+
+				const qr_code = extractId(qrCodeId);
+				if (!qr_code) return null;
+
+				try {
+					const qrData = await itemsQRCode.readOne(qr_code, { fields: ['is_open'] });
+					if (qrData && qrData.is_open === false) {
+						qrCodesToUpdate.push(qr_code);
+					}
+					return qr_code
+				} catch (error) {
+					return null;
+				}
+			}
 
 			for (const serial of uniqueSerialNumbers) {
 				if (!existingSerialSet.has(serial)) {
@@ -109,7 +131,7 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 										product_name = item.product_name || null;
 										model = item.product_model || null;
 										group_product = item.product_device || null;
-										qr_code = item.qr_code || null;
+										qr_code = await checkQRCode(item.qr_code) || null;
 										break;
 									}
 								}
@@ -119,7 +141,7 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 									product_name = checkList.product_name || null;
 									model = checkList.product_model || null;
 									group_product = checkList.product_device || null;
-									qr_code = checkList.qr_code || null;
+									qr_code = await checkQRCode(checkList.qr_code) || null;
 									break;
 								}
 							}
@@ -137,7 +159,10 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 							company_name: dataMAList.company_name || null,
 							branch: dataMAList.branch_name || null,
 							branch_code: dataMAList.branch_code || null,
-							qr_code
+							qr_code: {
+								id: qr_code,
+								is_open: true
+							}
 						}
 					);
 				}
