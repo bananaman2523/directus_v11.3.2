@@ -11,7 +11,7 @@ export default (router, { services, getSchema }) => {
 
 		if (payload.id === undefined || payload.id === null || payload.id === '') {
 			console.error("Payload does not contain 'id'.");
-			return;
+			return res.status(400).send({ message: "Payload does not contain 'id'." });
 		}
 
 		const dataMAList = await itemsMAList.readOne(payload.id, {
@@ -79,7 +79,7 @@ export default (router, { services, getSchema }) => {
 		const uniqueSerialNumbers = Array.from(new Set(serialNumbers));
 
 		const existingEquipments = await itemsEquipments.readByQuery({
-			fields: ['id', 'serial_number', 'product_code', 'product_name', 'model', 'group_product', 'store_name', 'company_name', 'branch', 'branch_code', 'qr_code.id'],
+			fields: ['id', 'serial_number', 'product_code', 'product_name', 'model', 'group_product', 'store_name', 'company_name', 'branch', 'branch_code', 'qr_code.id', 'qr_code.id_manual'],
 			filter: {
 				serial_number: {
 					_in: uniqueSerialNumbers
@@ -96,19 +96,32 @@ export default (router, { services, getSchema }) => {
 		async function checkQRCode(qrCodeId) {
 			function extractId(qrCode) {
 				if (!qrCode) return null;
-				const match = qrCode.match(/([0-9a-fA-F\-]{36})$/);
-				return match ? match[1] : qrCode;
+				try {
+					const url = new URL(qrCode);
+					const segments = url.pathname.split('/');
+					const lastSegment = segments.pop() || segments.pop();
+					return lastSegment;
+				} catch (e) {
+					const match = qrCode.match(/([0-9a-fA-F\-]{36})$/);
+					return match ? match[1] : qrCode;
+				}
 			}
 
-			const qr_code = extractId(qrCodeId);
-			if (!qr_code) return null;
+			const qr_code_manual = extractId(qrCodeId);
+			if (!qr_code_manual) return null;
 
 			try {
-				const qrData = await itemsQRCode.readOne(qr_code, { fields: ['is_open'] });
+				const qrDataArr = await itemsQRCode.readByQuery({
+					fields: ['id', 'is_open', 'id_manual'],
+					filter: { id_manual: { _eq: qr_code_manual } }
+				});
+				const qrData = qrDataArr[0];
+
 				if (qrData && qrData.is_open === false) {
-					qrCodesToUpdate.push(qr_code);
+					qrCodesToUpdate.push(qrData.id_manual);
 				}
-				return qr_code
+				// Return only the UUID id for relation
+				return qrData ? qrData.id : null;
 			} catch (error) {
 				return null;
 			}
@@ -120,7 +133,7 @@ export default (router, { services, getSchema }) => {
 			let product_name = null;
 			let model = null;
 			let group_product = null;
-			let qr_code = null;
+			let qr_code_id = null;
 
 			for (const field of checkListFields) {
 				if (dataMAList[`have_${field.replace('check_list_', '')}`]) {
@@ -132,7 +145,7 @@ export default (router, { services, getSchema }) => {
 								product_name = item.product_name || null;
 								model = item.product_model || null;
 								group_product = item.product_device || null;
-								qr_code = await checkQRCode(item.qr_code) || null;
+								qr_code_id = await checkQRCode(item.qr_code) || null;
 								break;
 							}
 						}
@@ -142,7 +155,7 @@ export default (router, { services, getSchema }) => {
 							product_name = checkList.product_name || null;
 							model = checkList.product_model || null;
 							group_product = checkList.product_device || null;
-							qr_code = await checkQRCode(checkList.qr_code) || null;
+							qr_code_id = await checkQRCode(checkList.qr_code) || null;
 							break;
 						}
 					}
@@ -164,7 +177,7 @@ export default (router, { services, getSchema }) => {
 						branch: dataMAList.branch_name || null,
 						branch_code: dataMAList.branch_code || null,
 						qr_code: {
-							id: qr_code,
+							id: qr_code_id,
 							is_open: true
 						}
 					}
@@ -184,7 +197,7 @@ export default (router, { services, getSchema }) => {
 						branch: dataMAList.branch_name || null,
 						branch_code: dataMAList.branch_code || null,
 						qr_code: {
-							id: qr_code,
+							id: qr_code_id,
 							is_open: true
 						}
 					});
@@ -211,16 +224,19 @@ export default (router, { services, getSchema }) => {
 				await itemsEquipments.updateOne(id, updateData);
 
 				// Close the old QR code if it exists and is different from the new one
-				if (existingEquipment && existingEquipment.qr_code && existingEquipment.qr_code.id) {
-					const oldQrCodeId = existingEquipment.qr_code.id;
-					const newQrCodeId = updateData.qr_code ? updateData.qr_code.id : null;
+				if (existingEquipment && existingEquipment.qr_code && existingEquipment.qr_code.id_manual) {
+					const oldQrCodeIdManual = existingEquipment.qr_code.id_manual;
+					const newQrCodeId = updateData.qr_code;
 
 					// Only close the old QR code if it's different from the new one
-					if (oldQrCodeId !== newQrCodeId) {
+					if (oldQrCodeIdManual !== newQrCodeId) {
 						try {
-							await itemsQRCode.updateOne(oldQrCodeId, { is_open: false });
+							await itemsQRCode.updateByQuery(
+								{ filter: { id_manual: { _eq: oldQrCodeIdManual } } },
+								{ is_open: false }
+							);
 						} catch (error) {
-							console.error(`Failed to close old QR code ${oldQrCodeId}:`, error);
+							console.error(`Failed to close old QR code ${oldQrCodeIdManual}:`, error);
 						}
 					}
 				}
@@ -240,7 +256,12 @@ export default (router, { services, getSchema }) => {
 
 		let dataMAList;
 		try {
-			dataMAList = await itemsQRCode.readOne(req.params.id, {
+			dataMAList = await itemsQRCode.readByQuery({
+				filter: {
+					id_manual: {
+						_eq: req.params.id
+					}
+				},
 				fields: [
 					'is_open',
 					'equipment.product_code',
@@ -263,7 +284,7 @@ export default (router, { services, getSchema }) => {
 			return res.status(403).send({ message: 'QR นี้ยังไม่ได้เปิดใช้งาน (QR code is not activated yet).' });
 		}
 
-		res.send({ message: 'Product information retrieved successfully.', data: dataMAList });
+		res.send({ message: 'Product information retrieved successfully.', dataMAList });
 	});
 
 	router.get('/generate-id-qr-code/:lot/:count', async (req, res) => {
