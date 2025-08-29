@@ -265,4 +265,51 @@ export default (router, { services, getSchema }) => {
 
 		res.send({ message: 'Product information retrieved successfully.', data: dataMAList });
 	});
+
+	router.get('/generate-id-qr-code/:lot/:count', async (req, res) => {
+		const itemsQRCode = new ItemsService('qr_code', { schema: await getSchema() });
+
+		try {
+			const now = new Date();
+			const yearYY = String(now.getFullYear()).slice(-2);
+
+			let lot = req.params.lot;
+			lot = String(lot).padStart(2, '0');
+
+			const count = parseInt(req.params.count, 10);
+
+			if (isNaN(count) || count < 1) {
+				return res.status(400).send({ data: null });
+			}
+
+			const ids = [];
+			const maxAttempts = 2000; // ป้องกัน loop ไม่จบ
+
+			let attempts = 0;
+			while (ids.length < count && attempts < maxAttempts) {
+				const random4 = Math.floor(1000 + Math.random() * 9000);
+				const newIdStr = `${yearYY}${lot}${random4}`;
+				const newIdInt = parseInt(newIdStr, 10);
+
+				// เช็คว่ามีใน DB หรือยัง
+				const existing = await itemsQRCode.readByQuery({
+					fields: ['id'],
+					filter: { id_manual: { _eq: newIdStr } }
+				});
+
+				if (existing.length === 0 && !ids.includes(newIdInt)) {
+					ids.push(newIdInt);
+				}
+				attempts++;
+			}
+
+			if (ids.length < count) {
+				return res.status(500).send({ data: null });
+			}
+
+			res.send({ data: ids });
+		} catch (error) {
+			return res.status(500).send({ data: null });
+		}
+	});
 };
