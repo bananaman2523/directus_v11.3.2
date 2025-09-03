@@ -1,7 +1,7 @@
 module.exports = async function registerHook({ action }, { services, getSchema }) {
 	const { ItemsService } = services;
 
-	action('ma_list.items.update', async ({ payload, keys, collection }) => {
+	action('ma_list.items.update', async ({ payload, keys }) => {
 		const itemsMAList = new ItemsService('ma_list', { schema: await getSchema() });
 		const itemsEquipments = new ItemsService('equipment', { schema: await getSchema() });
 		const itemsQRCode = new ItemsService('qr_code', { schema: await getSchema() });
@@ -14,7 +14,8 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 		}
 
 		try {
-			const dataMAList = await itemsMAList.readOne(payload.id, {
+			const id = typeof keys === 'object' && keys !== null ? keys.id || Object.values(keys)[0] : keys;
+			const dataMAList = await itemsMAList.readOne(id, {
 				fields: [
 					'company_name',
 					'store_name',
@@ -176,12 +177,18 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 							company_name: dataMAList.company_name || null,
 							branch: dataMAList.branch_name || null,
 							branch_code: dataMAList.branch_code || null,
-							qr_code: {
-								id: qr_code_id,
-								is_open: true
-							}
+							qr_code: qr_code_id // Only store the relation ID
 						}
 					);
+
+					// Update QR code separately if it exists
+					if (qr_code_id) {
+						try {
+							await itemsQRCode.updateOne(qr_code_id, { is_open: true });
+						} catch (error) {
+							console.error(`Failed to update QR code ${qr_code_id}:`, error);
+						}
+					}
 				} else {
 					// Update existing equipment
 					const existingEquipment = existingEquipments.find(eq => eq.serial_number === serial);
@@ -196,11 +203,17 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 							company_name: dataMAList.company_name || null,
 							branch: dataMAList.branch_name || null,
 							branch_code: dataMAList.branch_code || null,
-							qr_code: {
-								id: qr_code_id,
-								is_open: true
-							}
+							qr_code: qr_code_id // Only store the relation ID
 						});
+
+						// Update QR code separately if it exists
+						if (qr_code_id) {
+							try {
+								await itemsQRCode.updateOne(qr_code_id, { is_open: true });
+							} catch (error) {
+								console.error(`Failed to update QR code ${qr_code_id}:`, error);
+							}
+						}
 					}
 				}
 			}
