@@ -8,11 +8,6 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 	const itemsProductStockNoneSerial = new ItemsService('product_stocks_none_serial_number', { schema: await getSchema() });
 
 	action('supplier_stock.items.create', async (payload, key, collection) => {
-		console.log('******************************************');
-		console.log(payload);
-		console.log(collection);
-		console.log('******************************************');
-
 		if (!payload || !payload.payload || !payload.key) {
 			console.warn('Missing payload or key in supplier_stock.items.create handler');
 			return;
@@ -50,7 +45,8 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 					model: payloadProduct.model,
 					product_code: payloadProduct.product_code,
 					serial_number: serial,
-					supplier_details: payloadProduct.supplier_details
+					supplier_details: payloadProduct.supplier_details,
+					device_status: payloadProduct.device_status
 				}));
 
 				if (productStockEntries.length > 0) {
@@ -66,6 +62,7 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 						brand: { _eq: payloadProduct.brand },
 						model: { _eq: payloadProduct.model },
 						product_code: { _eq: payloadProduct.product_code },
+						device_status: { _eq: payloadProduct.device_status }
 					},
 					limit: 1
 				});
@@ -82,6 +79,7 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 						model: payloadProduct.model,
 						product_code: payloadProduct.product_code,
 						qty: payloadProduct.qty_product,
+						device_status: payloadProduct.device_status
 					});
 				}
 
