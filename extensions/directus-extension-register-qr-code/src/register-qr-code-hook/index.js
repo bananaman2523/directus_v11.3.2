@@ -260,4 +260,20 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 			console.error("Error creating record:", error);
 		}
 	});
+
+	action('qr_code.items.update', async ({ keys }) => {
+		try {
+			const itemsQRCode = new ItemsService('qr_code', { schema: await getSchema() });
+			const qrCodeId = typeof keys === 'object' && keys !== null ? keys.id || Object.values(keys)[0] : keys;
+			const qrCodeData = await itemsQRCode.readOne(qrCodeId, { fields: ['equipment'] });
+
+			if (qrCodeData && qrCodeData.equipment) {
+				await itemsQRCode.updateOne(qrCodeId, { is_open: true });
+			} else {
+				await itemsQRCode.updateOne(qrCodeId, { is_open: false });
+			}
+		} catch (error) {
+			console.error("Error updating QR code:", error);
+		}
+	});
 };
