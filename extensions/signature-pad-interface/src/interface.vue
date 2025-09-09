@@ -71,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick, watch, onMounted } from 'vue';
 import { useApi, useStores } from '@directus/extensions-sdk';
 import { VueSignaturePad } from "vue-signature-pad";
 
@@ -118,6 +118,45 @@ const isEmpty = ref(true);
 const windowWidth = ref(window.innerWidth);
 const containerWidth = ref(800);
 const containerHeight = ref(400);
+
+// Function to load signature file
+const loadSignatureFile = async () => {
+    if (!props.value) {
+        signatureUrl.value = null;
+        return;
+    }
+
+    try {
+        loading.value = true;
+        
+        // Get file info from Directus
+        const response = await api.get(`/files/${props.value}`);
+        
+        if (response.data?.data) {
+            const fileData = response.data.data;
+            // Construct the file URL
+            signatureUrl.value = `/assets/${fileData.id}?fit=contain&width=500&height=300&quality=80`;
+        }
+    } catch (error) {
+        console.error('Error loading signature file:', error);
+        signatureUrl.value = null;
+        
+        // If file doesn't exist, clear the value
+        if (error.response?.status === 404) {
+            emit('input', null);
+        }
+    } finally {
+        loading.value = false;
+    }
+};
+
+// Watch for changes in props.value to load the file
+watch(() => props.value, loadSignatureFile, { immediate: true });
+
+// Load signature on component mount
+onMounted(() => {
+    loadSignatureFile();
+});
 
 // Signature pad options
 const signaturePadOptions = computed(() => ({
@@ -178,9 +217,12 @@ const closePopup = () => {
 const clearSignature = async () => {
     if (props.value) {
         try {
+            loading.value = true;
             await api.delete(`/files/${props.value}`);
         } catch (error) {
             console.warn('Could not delete old signature file:', error);
+        } finally {
+            loading.value = false;
         }
     }
     
@@ -234,7 +276,7 @@ const saveSignature = async () => {
     try {
         // Get signature data
         const outputSignature = signaturePad.value.saveSignature();
-		const dataURL = outputSignature.data;
+        const dataURL = outputSignature.data;
 
         // Double check the original dataURL
         if (!dataURL || dataURL === 'data:,' || dataURL.length < 50) {
@@ -258,7 +300,7 @@ const saveSignature = async () => {
             }
         }
 
-		const blob = base64ToBlob(croppedDataURL, "image/png");
+        const blob = base64ToBlob(croppedDataURL, "image/png");
         
         // Validate blob
         if (blob.size === 0) {
@@ -290,6 +332,9 @@ const saveSignature = async () => {
         
         const fileId = uploadResponse.data.data.id;
         emit('input', fileId);
+        
+        // Update the signature URL immediately after successful upload
+        signatureUrl.value = `/assets/${fileId}?fit=contain&width=500&height=300&quality=80`;
         
         notificationsStore.add({
             title: 'Signature saved',
