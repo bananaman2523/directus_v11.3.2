@@ -3,31 +3,27 @@ module.exports = async function registerHook({ action, filter }, { services, get
 	const { ItemsService } = services;
 	const itemsReportRepairList = new ItemsService('report_repair_list', { schema });
 
-	filter('report_repair_list.items.create', async ({ collection }) => {
-		console.log('12312312312312312312312312312312312312312312331313123123123123');
-		console.log(collection);
-		console.log('12312312312312312312312312312312312312312312331313123123123123');
-		console.log('12312312312312312312312312312312312312312312331313123123123123');
+	action('report_repair_list.items.create', async ({ payload, key, collection }) => {
+		const now = new Date();
+		const year = String(now.getFullYear()).slice(-2); // 2 digits
+		const month = String(now.getMonth() + 1).padStart(2, '0');
+		const date = String(now.getDate()).padStart(2, '0');
+		const prefix = `R${year}${month}${date}`;
 
-		// // Get the latest document number
-		// const latestItem = await itemsReportRepairList.readByQuery({
-		// 	sort: ['-document_number'],
-		// 	limit: 1,
-		// 	fields: ['document_number'],
-		// });
+		// Query หาจำนวนใบที่ document_number contain prefix
+		const { data: itemsToday } = await itemsReportRepairList.readByQuery({
+			filter: {
+				document_number: {
+					_contains: prefix
+				}
+			}
+		});
+		const count = String((itemsToday?.length || 0) + 1).padStart(2, '0');
 
-		// let nextNumber = 1;
-		// if (latestItem && latestItem.length > 0 && latestItem[0].document_number) {
-		// 	const latestNumber = parseInt(latestItem[0].document_number, 10);
-		// 	if (!isNaN(latestNumber)) {
-		// 		nextNumber = latestNumber + 1;
-		// 	}
-		// }
+		const documentNumber = `${prefix}${count}`;
 
-		// // Format the document number as needed (e.g., zero-padded)
-		// const formattedNumber = nextNumber.toString().padStart(6, '0');
-
-		// // Set the document_number field
-		// collection.document_number = formattedNumber;
+		await itemsReportRepairList.updateOne(key, {
+			document_number: documentNumber,
+		});
 	});
 };
