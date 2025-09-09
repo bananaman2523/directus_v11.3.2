@@ -621,6 +621,7 @@ const cropBase64Image = (base64) => {
 .btn-primary:hover:not(:disabled) {
     background-color: var(--theme--primary-75);
     border-color: var(--theme--primary-75);
+    color: var(--theme--primary); /* Ensure text stays white on hover */
 }
 
 .btn-secondary {
