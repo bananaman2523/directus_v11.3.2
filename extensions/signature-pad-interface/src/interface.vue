@@ -38,6 +38,7 @@
                         
                         <div class="modal-body">
                             <div class="signature-canvas-container" ref="containerRef">
+								<div class="signature-watermark">กรุณาเซ็นตัวบรรจง</div>
                                 <VueSignaturePad
                                     ref="signaturePad"
                                     :options="signaturePadOptions"
@@ -160,7 +161,7 @@ onMounted(() => {
 
 // Signature pad options
 const signaturePadOptions = computed(() => ({
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(0,0,0,0)',
     penColor: '#000000',
     minWidth: 1,
     maxWidth: 3,
@@ -691,19 +692,41 @@ const cropBase64Image = (base64) => {
     align-items: center;
     min-height: 300px;
     overflow: hidden;
+    position: relative; /* เพิ่มสำหรับ watermark */
+}
+
+.signature-watermark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: rgba(0, 0, 0, 0.08);
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 1;
+    user-select: none;
+    white-space: nowrap;
+    font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
+    text-align: center;
+    /* เพิ่มเอฟเฟคให้ดูโปร่งใสแต่เห็นชัด */
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.05);
+    letter-spacing: 2px;
 }
 
 .signature-pad {
     border: 2px solid var(--theme--border-color-subdued);
     border-radius: var(--theme--border-radius);
-    background-color: white;
+    background-color: transparent;
     cursor: crosshair;
     max-width: 100%;
     max-height: 100%;
-}
-
-.signature-pad:hover {
-    border-color: var(--theme--primary);
+    position: relative;
+    z-index: 2;
 }
 
 .canvas-info {
@@ -728,6 +751,11 @@ const cropBase64Image = (base64) => {
     .signature-canvas-container {
         padding: 0.5rem;
         min-height: 250px;
+    }
+
+    .signature-watermark {
+        font-size: 24px;
+        letter-spacing: 1.5px;
     }
 }
 
@@ -764,6 +792,11 @@ const cropBase64Image = (base64) => {
     .signature-canvas-container {
         min-height: 200px;
         padding: 0.25rem;
+    }
+
+    .signature-watermark {
+        font-size: 18px;
+        letter-spacing: 1px;
     }
 }
 </style>
