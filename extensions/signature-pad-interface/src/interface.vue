@@ -71,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { useApi, useStores } from '@directus/extensions-sdk';
 import { VueSignaturePad } from "vue-signature-pad";
 
@@ -159,7 +159,7 @@ const openSignaturePad = async () => {
     
     // Update container size and initialize signature pad
     setTimeout(() => {
-        updateContainerSize();
+        // updateContainerSize();
         isEmpty.value = true;
         
         // Force re-render of signature pad with new size
@@ -233,14 +233,21 @@ const saveSignature = async () => {
     
     try {
         // Get signature data
-        const dataURL = signaturePad.value.saveSignature();
-        
-        // Double check the dataURL
+        const outputSignature = signaturePad.value.saveSignature();
+		const dataURL = outputSignature.data;
+
+        // Double check the original dataURL
         if (!dataURL || dataURL === 'data:,' || dataURL.length < 50) {
             throw new Error('Failed to generate signature image or signature is empty');
         }
         
-        console.log('Signature data URL length:', dataURL.length); // Debug log
+        // Crop the image to remove empty space
+        const croppedDataURL = await cropBase64Image(dataURL);
+
+        // Validate the cropped image
+        if (!croppedDataURL || croppedDataURL === 'data:,' || croppedDataURL.length < 50) {
+            throw new Error('Failed to crop signature image or cropped image is empty');
+        }
         
         // Delete old signature if it exists
         if (props.value) {
@@ -251,19 +258,12 @@ const saveSignature = async () => {
             }
         }
 
-        // Convert data URL to blob
-        const response = await fetch(dataURL);
-        if (!response.ok) {
-            throw new Error('Failed to convert signature to blob');
-        }
-        const blob = await response.blob();
+		const blob = base64ToBlob(croppedDataURL, "image/png");
         
         // Validate blob
         if (blob.size === 0) {
             throw new Error('Generated signature file is empty');
         }
-        
-        console.log('Blob size:', blob.size); // Debug log
         
         // Create form data
         const formData = new FormData();
@@ -310,29 +310,95 @@ const saveSignature = async () => {
     }
 };
 
-// Add cropBase64Image function if needed
-const cropBase64Image = async (base64) => {
-    return new Promise((resolve) => {
+function base64ToBlob(base64, mimeType = '') {
+  const BASE64_MARKER = ';base64,';
+  let parts = base64.split(BASE64_MARKER);
+  let rawBase64 = parts.length === 2 ? parts[1] : base64;
+  let byteString = atob(rawBase64);
+  let arrayBuffer = new ArrayBuffer(byteString.length);
+  let uint8Array = new Uint8Array(arrayBuffer);
+
+  for (let i = 0; i < byteString.length; i++) {
+    uint8Array[i] = byteString.charCodeAt(i);
+  }
+
+  return new Blob([arrayBuffer], { type: mimeType });
+}
+
+// Improved cropBase64Image function with better error handling
+const cropBase64Image = (base64) => {
+    return new Promise((resolve, reject) => {
         const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Simple crop logic - you can adjust this based on your needs
-            const cropMargin = 20;
-            canvas.width = img.width - (cropMargin * 2);
-            canvas.height = img.height - (cropMargin * 2);
-            
-            ctx.drawImage(
-                img,
-                cropMargin, cropMargin,
-                canvas.width, canvas.height,
-                0, 0,
-                canvas.width, canvas.height
-            );
-            
-            resolve(canvas.toDataURL());
+        
+        img.onerror = () => {
+            reject(new Error('Failed to load image for cropping'));
         };
+        
+        img.onload = () => {
+            try {
+                const tempCanvas = document.createElement("canvas");
+                const tempCtx = tempCanvas.getContext("2d");
+
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+
+                tempCtx.drawImage(img, 0, 0);
+                const imgData = tempCtx.getImageData(0, 0, img.width, img.height);
+
+                // หาขอบเขตของ pixel ที่มีข้อมูลจริง (ไม่โปร่งใส)
+                let top = img.height, bottom = 0, left = img.width, right = 0;
+                let hasContent = false;
+                
+                for (let y = 0; y < img.height; y++) {
+                    for (let x = 0; x < img.width; x++) {
+                        const i = (y * img.width + x) * 4;
+                        if (imgData.data[i + 3] !== 0) { // ถ้ามี alpha ≠ 0
+                            hasContent = true;
+                            if (x < left) left = x;
+                            if (x > right) right = x;
+                            if (y < top) top = y;
+                            if (y > bottom) bottom = y;
+                        }
+                    }
+                }
+
+                // ตรวจสอบว่ามีเนื้อหาในภาพหรือไม่
+                if (!hasContent) {
+                    reject(new Error('No signature content found in image'));
+                    return;
+                }
+
+                const width = right - left + 1;
+                const height = bottom - top + 1;
+
+                // ตรวจสอบขนาดที่ได้
+                if (width <= 0 || height <= 0) {
+                    reject(new Error('Invalid crop dimensions'));
+                    return;
+                }
+
+                // ตัดภาพใหม่
+                const croppedCanvas = document.createElement("canvas");
+                const croppedCtx = croppedCanvas.getContext("2d");
+                croppedCanvas.width = width;
+                croppedCanvas.height = height;
+
+                croppedCtx.drawImage(tempCanvas, left, top, width, height, 0, 0, width, height);
+                
+                const croppedDataURL = croppedCanvas.toDataURL("image/png");
+                
+                // ตรวจสอบผลลัพธ์
+                if (!croppedDataURL || croppedDataURL === 'data:,') {
+                    reject(new Error('Failed to generate cropped image'));
+                    return;
+                }
+                
+                resolve(croppedDataURL);
+            } catch (error) {
+                reject(new Error(`Error during image cropping: ${error.message}`));
+            }
+        };
+
         img.src = base64;
     });
 };
