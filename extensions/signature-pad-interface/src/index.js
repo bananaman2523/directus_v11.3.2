@@ -98,6 +98,42 @@ export default {
 				default_value: 0.8,
 			},
 		},
+		{
+			field: 'clear_button',
+			name: 'Clear Button',
+			type: 'boolean',
+			meta: {
+				interface: 'toggle',
+				note: 'Show clear button on signature pad',
+			},
+			schema: {
+				default_value: true,
+			},
+		},
+		{
+			field: 'edit_button',
+			name: 'Edit Button',
+			type: 'boolean',
+			meta: {
+				interface: 'toggle',
+				note: 'Show edit button on signature pad',
+			},
+			schema: {
+				default_value: true,
+			},
+		},
+		{
+			field: 'watermark_text',
+			name: 'Watermark Text',
+			type: 'string',
+			meta: {
+				interface: 'input',
+				note: 'Optional text to display as a watermark on the signature image',
+			},
+			schema: {
+				default_value: 'กรุณาเซ็นตัวบรรจง',
+			}
+		}
 	],
 	types: ['uuid'],
 };

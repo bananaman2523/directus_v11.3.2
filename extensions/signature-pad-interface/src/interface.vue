@@ -11,11 +11,11 @@
         </div>
         
         <div class="signature-actions">
-            <v-button @click="openSignaturePad" :loading="loading">
+            <v-button @click="openSignaturePad" :loading="loading" :disabled="!edit_button">
                 <v-icon name="edit" left />
                 {{ signatureUrl ? 'Edit Signature' : 'Add Signature' }}
             </v-button>
-            <v-button v-if="signatureUrl" @click="clearSignature" kind="danger" outlined>
+            <v-button v-if="signatureUrl && clear_button" @click="clearSignature" kind="danger" outlined>
                 <v-icon name="delete" left />
                 Clear
             </v-button>
@@ -38,7 +38,7 @@
                         
                         <div class="modal-body">
                             <div class="signature-canvas-container" ref="containerRef">
-								<div class="signature-watermark">กรุณาเซ็นตัวบรรจง</div>
+								<div class="signature-watermark">{{ watermark_text }}</div>
                                 <VueSignaturePad
                                     ref="signaturePad"
                                     :options="signaturePadOptions"
@@ -100,6 +100,18 @@ const props = defineProps({
     quality: {
         type: Number,
         default: 0.9,
+    },
+    clear_button: {
+        type: Boolean,
+        default: true,
+    },
+    edit_button: {
+        type: Boolean,
+        default: true,
+    },
+    watermark_text: {
+        type: String,
+        default: 'กรุณาเซ็นตัวบรรจง',
     },
 });
 
