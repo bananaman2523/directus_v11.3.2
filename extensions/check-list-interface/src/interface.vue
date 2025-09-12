@@ -15,16 +15,11 @@
                 <div class="category-items">
                     <div v-for="(item, itemIndex) in category.items" :key="itemIndex"
                          class="checklist-item"
-                         :class="{
-                             'status-null': item.status === '',
-                             'status-pass': item.status === 'normal',
-                             'status-fail': item.status === 'unusual',
-                             'status-pending': item.status === 'start_unusual' || item.status === null
-                         }">
+                         :class="getChecklistItemClass(item)">
                         
                         <div class="item-content">
                             <div class="item-header">
-                                <div class="status-indicator" :class="getStatusClass(item.status)"></div>
+                                <div class="status-indicator" :class="getStatusClass(item.status, item)"></div>
                                 <h4 class="item-description">{{ item.description }}</h4>
                             </div>
                             
@@ -78,6 +73,12 @@ export default {
     },
     emits: ['input'],
     setup(props, { emit }) {
+        // Get checklist-item class from selected statusOption
+        const getChecklistItemClass = (item) => {
+            if (item.status === '' || item.status === null) return 'status-null';
+            const selected = item.statusOptions.find(opt => opt.value === item.status);
+            return selected && selected.class ? `status-${selected.class}` : '';
+        };
         // Show note only if selected status's description is true
         const showNote = (item) => {
             const selected = item.statusOptions.find(opt => opt.value === item.status);
@@ -156,20 +157,11 @@ export default {
             return Object.values(groups);
         });
 
-        const getStatusClass = (status) => {
-            switch (status) {
-                case 'ผ่าน':
-                case 'normal':
-                    return 'status-pass';
-                case 'ไม่ผ่าน':
-                case 'unusual':
-                    return 'status-fail';
-                case 'รอตรวจสอบ':
-                case 'start_unusual':
-                    return 'status-pending';
-                default:
-                    return 'status-pending';
-            }
+        const getStatusClass = (status, item) => {
+            if (status === '' || status === null) return 'status-null';
+            if (!item || !item.statusOptions) return '';
+            const selected = item.statusOptions.find(opt => opt.value === status);
+            return selected && selected.class ? `status-${selected.class}` : '';
         };
 
         const updateStatus = (categoryIndex, itemIndex, status) => {
@@ -210,6 +202,7 @@ export default {
             checklistData,
             groupedChecklist,
             getStatusClass,
+            getChecklistItemClass,
             updateStatus,
             updateNote,
             showNote
