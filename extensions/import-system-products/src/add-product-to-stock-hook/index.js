@@ -55,32 +55,20 @@ module.exports = async function registerHook({ action }, { services, getSchema }
 					await itemsProductStock.createOne(productStockEntries[0]);
 				}
 			} else if (!payloadProduct.have_serial_number) {
-				const alreadyExists = await itemsProductStockNoneSerial.readByQuery({
-					filter: {
-						group_product: { _eq: payloadProduct.group_product },
-						product_name: { _eq: payloadProduct.product_name },
-						brand: { _eq: payloadProduct.brand },
-						model: { _eq: payloadProduct.model },
-						product_code: { _eq: payloadProduct.product_code },
-						device_status: { _eq: payloadProduct.device_status }
-					},
-					limit: 1
-				});
+				const productStockEntries = Array.from({ length: payloadProduct.qty_product }, () => ({
+					supplier: supplierId,
+					group_product: payloadProduct.group_product,
+					product_name: payloadProduct.product_name,
+					brand: payloadProduct.brand,
+					model: payloadProduct.model,
+					product_code: payloadProduct.product_code,
+					device_status: payloadProduct.device_status
+				}));
 
-				if (alreadyExists.length > 0) {
-					const existingEntry = alreadyExists[0];
-					const newQty = existingEntry.qty + payloadProduct.qty_product;
-					await itemsProductStockNoneSerial.updateOne(existingEntry.id, { qty: newQty });
-				} else if (alreadyExists.length === 0) {
-					await itemsProductStockNoneSerial.createOne({
-						group_product: payloadProduct.group_product,
-						product_name: payloadProduct.product_name,
-						brand: payloadProduct.brand,
-						model: payloadProduct.model,
-						product_code: payloadProduct.product_code,
-						qty: payloadProduct.qty_product,
-						device_status: payloadProduct.device_status
-					});
+				if (productStockEntries.length > 0) {
+					await itemsProductStockNoneSerial.createMany(productStockEntries);
+				} else {
+					await itemsProductStockNoneSerial.createOne(productStockEntries[0]);
 				}
 
 			}
