@@ -112,63 +112,25 @@ export default {
                             existingData = [];
                         }
                     }
-
-                    // Merge existing data with template
                     checklistData.value = template.map((templateItem, index) => {
                         const existingItem = existingData[index];
-                        // Flexible status options from status_setting (array)
-                        let statusOptions = [];
-                        if (templateItem.status_setting && Array.isArray(templateItem.status_setting)) {
-                            statusOptions = templateItem.status_setting.map(opt => {
-                                let icon = '';
-                                let cssClass = '';
-                                if (opt.value === 'normal') { icon = '✅'; cssClass = 'pass'; }
-                                else if (opt.value === 'start_unusual') { icon = '⏳'; cssClass = 'pending'; }
-                                else if (opt.value === 'unusual') { icon = '❌'; cssClass = 'fail'; }
-                                else { icon = ''; cssClass = ''; }
-                                return { ...opt, icon, class: cssClass };
-                            });
-                        } else {
-                            statusOptions = [
-                                { value: 'รอตรวจสอบ', display: 'รอตรวจสอบ', icon: '⏳', class: 'pending' },
-                                { value: 'ผ่าน', display: 'ผ่าน', icon: '✅', class: 'pass' },
-                                { value: 'ไม่ผ่าน', display: 'ไม่ผ่าน', icon: '❌', class: 'fail' }
-                            ];
-                        }
+                        // Use statusOptions directly from templateItem
                         return {
                             ...templateItem,
-                            statusOptions,
-                            status: existingItem?.status ?? null,
-                            note: existingItem?.note || templateItem.note || ''
+                            statusOptions: templateItem.statusOptions,
+                            status: existingItem?.status ?? templateItem.status ?? '',
+                            note: existingItem?.note || templateItem.note || '',
+                            disabled: templateItem.disabled ?? false
                         };
                     });
                 } else {
-                    checklistData.value = template.map(templateItem => {
-                        let statusOptions = [];
-                        if (templateItem.status_setting && Array.isArray(templateItem.status_setting)) {
-                            statusOptions = templateItem.status_setting.map(opt => {
-                                let icon = '';
-                                let cssClass = '';
-                                if (opt.value === 'normal') { icon = '✅'; cssClass = 'pass'; }
-                                else if (opt.value === 'start_unusual') { icon = '⏳'; cssClass = 'pending'; }
-                                else if (opt.value === 'unusual') { icon = '❌'; cssClass = 'fail'; }
-                                else { icon = ''; cssClass = ''; }
-                                return { ...opt, icon, class: cssClass };
-                            });
-                        } else {
-                            statusOptions = [
-                                { value: 'รอตรวจสอบ', display: 'รอตรวจสอบ', icon: '⏳', class: 'pending' },
-                                { value: 'ผ่าน', display: 'ผ่าน', icon: '✅', class: 'pass' },
-                                { value: 'ไม่ผ่าน', display: 'ไม่ผ่าน', icon: '❌', class: 'fail' }
-                            ];
-                        }
-                        return {
-                            ...templateItem,
-                            statusOptions,
-                            status: templateItem.status ?? null,
-                            note: templateItem.note || ''
-                        };
-                    });
+                    checklistData.value = template.map(templateItem => ({
+                        ...templateItem,
+                        statusOptions: templateItem.statusOptions,
+                        status: templateItem.status ?? '',
+                        note: templateItem.note || '',
+                        disabled: templateItem.disabled ?? false
+                    }));
                 }
             }
         };
