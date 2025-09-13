@@ -47,37 +47,42 @@ export default {
             return 'Auto-filled value';
         });
 
-        // ใช้ ref และ watch เพื่อให้ reactive กับ array/object mutation
-    // Remove displayedValue and displayedValueString, use props.value directly
-
         function calcDisplay(val) {
-            if (!val || val === '') return 'waiting for check';
-            if (Array.isArray(val)) {
-                if (val.length === 0) return 'waiting for check';
-                const hasFail = val.some(item => item.class === 'fail' || item.status === 'not_passed');
-                const allPass = val.every(item => item.class === 'pass' || item.status === 'passed');
-                if (hasFail) return 'broken';
-                if (allPass) return 'passed';
-                return 'waiting for check';
+            let jsonData = null;
+            let input = val;
+            if (typeof input === 'object') {
+                try {
+                    input = JSON.stringify(input);
+                } catch (e) {
+                    input = '';
+                }
             }
-            return val;
+            try {
+                jsonData = JSON.parse(input);
+            } catch (e) {
+                jsonData = null;
+            }
+
+            if (jsonData && typeof jsonData === 'object' && Array.isArray(jsonData)) {
+                const allPassed = jsonData.every(item => item.status === 'passed');
+                const anyNotPassed = jsonData.some(item => item.status === 'not_passed');
+                if (allPassed) return 'passed';
+                if (anyNotPassed) return 'not_passed';
+            }
+
+            return input;
         }
-		function handleChange(val) {
-            emit('input', val);
-        }
+            function handleChange(val) {
+                const result = calcDisplay(val);
+                emit('input', result);
+            }
 
         watch(
             () => values.value?.[props.wait_for_field],
             (newVal) => {
                 // คำนวณผลลัพธ์ทุกครั้งที่ค่าเปลี่ยน
                 const result = calcDisplay(newVal);
-                // emit เฉพาะเมื่อค่าที่คำนวณได้ต่างจาก props.value จริงๆ
-                if (typeof result === 'string' && 
-                    result.length <= 255 && 
-                    result !== props.value &&
-                    ['passed', 'broken', 'waiting for check'].includes(result)) {
-                    emit('input', result);
-                }
+                emit('input', result);
             },
             { immediate: false, deep: true }
         );
