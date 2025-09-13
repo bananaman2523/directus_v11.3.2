@@ -69,6 +69,7 @@ export default {
                 const anyNotPassed = jsonData.some(item => item.status === 'not_passed');
                 if (allPassed) return 'passed';
                 if (anyNotPassed) return 'not_passed';
+                return 'pending';
             }
 
             return input;
