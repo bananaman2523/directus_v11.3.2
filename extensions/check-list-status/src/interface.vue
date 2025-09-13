@@ -4,6 +4,7 @@
         :disabled="isWaitingForDependency"
         :placeholder="placeholderText"
         @update:model-value="handleChange"
+        readonly
     />
 </template>
 
